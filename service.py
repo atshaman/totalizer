@@ -1,5 +1,4 @@
 import asyncio
-import redis.asyncio
 import aiohttp.web
 import classes
 from loguru import logger
@@ -10,7 +9,7 @@ class Service:
         self.points, self.app = None, None
         self.interface, self.port = interface, port
         self.bootstrap, self.topic, self.consumer = bootstrap, topic, consumer
-        self.redis = redis.asyncio.from_url(redisuri)
+        # self.redis = redis.asyncio.from_url(redisuri)
         if not context_path.endswith("/"):
             self.context_path = context_path + "/"
         else:
@@ -27,27 +26,31 @@ class Service:
         if data:
             pass
 
-    async def checkredis(self):
-        async with self.redis:
-            try:
-                logger.info(await self.redis.ping())
-            except Exception as error:
-                logger.error(f'Не удалось получить доступ к REDIS, {error}')
-
     async def health(self, request):
         """Запрос проб"""
         logger.debug(request)
         return aiohttp.web.json_response({"status": "UP"})
 
     async def loadconfig(self, request):
+        """Загрузка конфигурации методом POST """
+        pass
+
+    async def getconfig(self, request):
+        """Получение работающей конфигурации """
+        pass
+
+    async def putconfig(self, request):
+        """Изменение загруженной конфигурации """
         pass
 
     async def getvalue(self, request):
+        """Получение значений тоталайзера по тегам """
         pass
 
     async def background(self, app):
+        """Инициализация массива отслеживаемых точек. Выполняется в фоне, т.к. требуется event loop """
         self.points = classes.Points(self.bootstrap, self.topic, self.consumer)
-        self.app['redis'] = asyncio.create_task(self.checkredis())
+        # self.app['redis'] = asyncio.create_task(self.checkredis())
         # self.task = asyncio.create_task(self.points.consume())
         # yield
         # self.task.cancel()
@@ -55,13 +58,13 @@ class Service:
         #     await self.task
 
     async def cleanup_background(self, app):
-        # self.app['redis'].cancel()
-        pass
+        self.app['redis'].cancel()
 
     async def on_shutdown(self, app):
         pass
 
     def run(self):
+        """Запуск event loop. Создание фоновой задачи по инициализации массива тегов """
         self.app = aiohttp.web.Application()
         self.app.add_routes(self.routes)
         # Добавляем фоновые задачи

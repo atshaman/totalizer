@@ -16,19 +16,25 @@ class Points(dict):
         self.points = []
         self.bootstrap = bootstrap
         self.topic = topic
-        self.consumer = consumer
+        self.consumer = aiokafka.AIOKafkaConsumer(
+            self.topic, bootstrap_servers=self.bootstrap, group_id=self.consumer
+        )
         self.loop = asyncio.get_running_loop()
         self.cron = aiocron.crontab("* * * * * */10", self.produce, loop=self.loop)
 
+    async def checkredis(self):
+        async with self.redis:
+            try:
+                logger.info(await self.redis.ping())
+            except Exception as error:
+                logger.error(f'Не удалось получить доступ к REDIS, {error}')
+
     async def consume(self):
-        consumer = aiokafka.AIOKafkaConsumer(
-            self.topic, bootstrap_servers=self.bootstrap, group_id=self.consumer
-        )
         dataframe = []
-        await consumer.start()
+        await self.consumer.start()
         logger.success(f'Consumer started...')
         try:
-            async for msg in consumer:
+            async for msg in self.consumer:
                 data = json.loads(msg.value)
                 print(data)
                 for item in filter(lambda x: x[0] in KEYS, data.items()):
@@ -44,7 +50,7 @@ class Points(dict):
                         )
                 print(dataframe)
         finally:
-            await consumer.stop()
+            await self.consumer.stop()
             logger.success('Consumer stopped...')
 
     async def produce(self):
@@ -66,3 +72,7 @@ class Point:
 
     def totalize(self):
         pass
+
+
+if __name__ == '__main__':
+    pass
